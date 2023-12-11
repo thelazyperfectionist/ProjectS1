@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define MAX_LINE_LENGTH 100
-#define MAX_RECORDS 1000
+#define MAX_RECORDS 80
 #define BUS_SEATING_CAPACITY 50
 
 
@@ -16,6 +17,61 @@ struct BusRecord {
     int getOnBusStopID;
     int getOffBusStopID; 
 };
+
+void generateRandomRecords(struct BusRecord records[], int count) {
+    srand((unsigned int)time(NULL));
+
+    for (int i = 0; i < count; ++i) {
+        int hour = 8 + i / 7;
+        int minute = 30 + (i % 7) * 7;
+        
+        if (hour >= 20) {
+            break;  
+        }
+
+        if (minute >= 60) {
+            minute = minute % 60;
+            hour += 1;
+        }
+
+        sprintf(records[i].date, "2023-01-01");
+        sprintf(records[i].time, "%02d:%02d", hour, minute);
+
+        records[i].passengerCount = 1;
+
+        sprintf(records[i].gender, rand() % 2 == 0 ? "Male" : "Female");
+
+        records[i].age = rand() % 64 + 6;
+        records[i].getOnBusStopID = rand() % 9 + 1;  
+        records[i].getOffBusStopID = rand() % (10 - records[i].getOnBusStopID) + records[i].getOnBusStopID + 1; 
+
+        if (i > 0 && rand() % 5 == 0) {
+            records[i].getOnBusStopID = records[i - 1].getOnBusStopID;
+            strncpy(records[i].time, records[i - 1].time, sizeof(records[i].time));
+        }
+    }
+}
+
+
+
+
+void writeRecordsToFiles(struct BusRecord records[], int count) {
+    FILE *outputFile = fopen("simulated_data.txt", "w");
+
+    if (outputFile == NULL) {
+        perror("Error opening file for writing");
+        exit(1);
+    }
+
+    for (int i = 0; i < count; ++i) {
+        fprintf(outputFile, "%s,%s,%d,%s,%d,%d,%d\n",
+                records[i].date, records[i].time, records[i].passengerCount,
+                records[i].gender, records[i].age, records[i].getOnBusStopID,
+                records[i].getOffBusStopID);
+    }
+
+    fclose(outputFile);
+}
 
 void findPeakTravelTime(struct BusRecord records[], int count) {
     int hourCounts[24] = {0};
@@ -38,8 +94,8 @@ void findPeakTravelTime(struct BusRecord records[], int count) {
 
 void calculateOccupancyRate(struct BusRecord records[], int count) {
     int occupancyCounts[24] = {0};
-    int workingHoursStart = 8;  // Bus working hours start at 8:30
-    int workingHoursEnd = 20;   // Bus working hours end at 20:00
+    int workingHoursStart = 8;  
+    int workingHoursEnd = 20;   
 
   for (int i = 0; i < count; ++i) {
     int hour;
@@ -60,47 +116,31 @@ void calculateOccupancyRate(struct BusRecord records[], int count) {
 void countPassengersByGender(struct BusRecord records[], int count) {
     int maleCounts[12] = {0}; 
     int femaleCounts[12] = {0};
-    int passengersGottenOff[12] = {0}; 
 
     for (int i = 0; i < count; ++i) {
         int hour, minute;
         sscanf(records[i].time, "%d:%d", &hour, &minute);
         int timeInMinutes = hour * 60 + minute;
 
-        if (timeInMinutes < 510 || timeInMinutes >= 1200) {
+        if (timeInMinutes < 480 || timeInMinutes >= 1200) {
             continue;
         }
+        int workingHour = (timeInMinutes - 480) / 60;
+        workingHour = workingHour >= 12 ? workingHour - 12 : workingHour;
 
-        int workingHour = (timeInMinutes - 510) / 60; 
         if (strcmp(records[i].gender, "Male") == 0) {
             maleCounts[workingHour] += records[i].passengerCount;
         } else if (strcmp(records[i].gender, "Female") == 0) {
             femaleCounts[workingHour] += records[i].passengerCount;
         }
-        if (i < count - 1 && records[i].getOffBusStopID != records[i + 1].getOnBusStopID &&
-            passengersGottenOff[workingHour] == 0) {
-            int getOffHour, getOffMinute;
-            sscanf(records[i + 1].time, "%d:%d", &getOffHour, &getOffMinute);
-            int getOffTimeInMinutes = getOffHour * 60 + getOffMinute;
-
-            if (getOffTimeInMinutes < 510 || getOffTimeInMinutes >= 1200) {
-                continue; 
-            }
-
-            int getOffWorkingHour = (getOffTimeInMinutes - 510) / 60; 
-
-            maleCounts[getOffWorkingHour] -= records[i + 1].passengerCount;
-            femaleCounts[getOffWorkingHour] -= records[i + 1].passengerCount;
-
-            passengersGottenOff[workingHour] = 1; 
-        }
     }
 
     for (int i = 0; i < 12; ++i) {
-        printf("%02d:30-%02d:30 Male Count: %d, Female Count: %d\n",
-               i + 8, (i + 9) % 12 + 8, maleCounts[i], femaleCounts[i]);
+        printf("%02d:00-%02d:00 Male Count: %d, Female Count: %d\n",
+               (i + 8) % 12, (i + 9) % 12, maleCounts[i], femaleCounts[i]);
     }
 }
+
 
 
 
@@ -166,64 +206,42 @@ void displayMenu() {
 }
 
 int main() {
-    FILE *file = fopen("passenger_data.txt", "r");
-
-    if (file == NULL) {
-        perror("Error opening file");
-        return 1;
-    }
-
-    char line[MAX_LINE_LENGTH];
     struct BusRecord records[MAX_RECORDS];
-    int recordCount = 0;
 
-    while (fgets(line, sizeof(line), file) != NULL && recordCount < MAX_RECORDS) {
-    if (sscanf(line, "%19[^,],%19[^,],%d,%9[^,],%d,%d,%d",
-               records[recordCount].date, records[recordCount].time,
-               &records[recordCount].passengerCount, records[recordCount].gender,
-               &records[recordCount].age, &records[recordCount].getOnBusStopID,
-               &records[recordCount].getOffBusStopID) != 7) {
-        fprintf(stderr, "Error parsing line: %s", line);
-        continue;
-    }
+    generateRandomRecords(records, MAX_RECORDS);
+    writeRecordsToFiles(records, MAX_RECORDS);
 
-    recordCount++;
-}
-
-
-    fclose(file);
 
     int choice;
 
     do {
-    displayMenu();
-    printf("Enter your choice: ");
-    scanf("%d", &choice);
+        displayMenu();
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
 
-    switch (choice) {
-        case 1:
-            findPeakTravelTime(records, recordCount);
-            break;
-        case 2:
-            calculateOccupancyRate(records, recordCount);
-            break;
-        case 3:
-            countPassengersByGender(records, recordCount);
-            break;
-        case 4:
-            findAgeRange(records, recordCount);
-            break;
-        case 5:
-            findMostCommonBusStops(records, recordCount);
-            break;
-        case 6:
-            printf("Exiting the program.\n");
-            break;
-        default:
-            printf("Invalid choice. Please enter a valid option.\n");
-    }
-} while (choice != 6);
-
+        switch (choice) {
+            case 1:
+                findPeakTravelTime(records, MAX_RECORDS);
+                break;
+            case 2:
+                calculateOccupancyRate(records, MAX_RECORDS);
+                break;
+            case 3:
+                countPassengersByGender(records, MAX_RECORDS);
+                break;
+            case 4:
+                findAgeRange(records, MAX_RECORDS);
+                break;
+            case 5:
+                findMostCommonBusStops(records, MAX_RECORDS);
+                break;
+            case 6:
+                printf("Exiting the program.\n");
+                break;
+            default:
+                printf("Invalid choice. Please enter a valid option.\n");
+        }
+    } while (choice != 6);
 
     return 0;
 }
