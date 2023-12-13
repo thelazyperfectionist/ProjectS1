@@ -3,10 +3,8 @@
 #include <string.h>
 #include <time.h>
 
-#define MAX_LINE_LENGTH 100
 #define MAX_RECORDS 80
 #define BUS_SEATING_CAPACITY 50
-
 
 struct BusRecord {
     char date[20];
@@ -44,11 +42,6 @@ void generateRandomRecords(struct BusRecord records[], int count) {
         records[i].age = rand() % 64 + 6;
         records[i].getOnBusStopID = rand() % 9 + 1;  
         records[i].getOffBusStopID = rand() % (10 - records[i].getOnBusStopID) + records[i].getOnBusStopID + 1; 
-
-        if (i > 0 && rand() % 5 == 0) {
-            records[i].getOnBusStopID = records[i - 1].getOnBusStopID;
-            strncpy(records[i].time, records[i - 1].time, sizeof(records[i].time));
-        }
     }
 }
 
@@ -117,6 +110,12 @@ void countPassengersByGender(struct BusRecord records[], int count) {
     int maleCounts[12] = {0}; 
     int femaleCounts[12] = {0};
 
+    const char *hourRanges[12] = {
+        "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
+        "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00", "17:00-18:00",
+        "18:00-19:00", "19:00-20:00"
+    };
+
     for (int i = 0; i < count; ++i) {
         int hour, minute;
         sscanf(records[i].time, "%d:%d", &hour, &minute);
@@ -135,13 +134,11 @@ void countPassengersByGender(struct BusRecord records[], int count) {
         }
     }
 
+    printf("Hour Range      Male Count      Female Count\n");
     for (int i = 0; i < 12; ++i) {
-        printf("%02d:00-%02d:00 Male Count: %d, Female Count: %d\n",
-               (i + 8) % 12, (i + 9) % 12, maleCounts[i], femaleCounts[i]);
+        printf("%s     %d               %d\n", hourRanges[i], maleCounts[i], femaleCounts[i]);
     }
 }
-
-
 
 
 void findAgeRange(struct BusRecord records[], int count) {
@@ -166,32 +163,38 @@ void findAgeRange(struct BusRecord records[], int count) {
     printf("36 and above Age Range Count: %d\n", ageRanges[AGE_36_ABOVE]);
 }
 
-
-void findMostCommonBusStops(struct BusRecord records[], int count) {
-    int stopPairs[BUS_SEATING_CAPACITY][BUS_SEATING_CAPACITY] = {0};
+void findMostCommonStops(struct BusRecord records[], int count) {
+    int getOnStopCounts[BUS_SEATING_CAPACITY] = {0};
+    int getOffStopCounts[BUS_SEATING_CAPACITY] = {0};
 
     for (int i = 0; i < count; ++i) {
         int getOnStop = records[i].getOnBusStopID;
         int getOffStop = records[i].getOffBusStopID;
 
-        stopPairs[getOnStop][getOffStop] += records[i].passengerCount;
+        getOnStopCounts[getOnStop] += records[i].passengerCount;
+        getOffStopCounts[getOffStop] += records[i].passengerCount;
     }
 
     int maxGetOnStop = 0, maxGetOffStop = 0;
-    int maxCount = stopPairs[0][0];
+    int maxGetOnCount = getOnStopCounts[0];
+    int maxGetOffCount = getOffStopCounts[0];
 
     for (int i = 0; i < BUS_SEATING_CAPACITY; ++i) {
-        for (int j = 0; j < BUS_SEATING_CAPACITY; ++j) {
-            if (stopPairs[i][j] > maxCount) {
-                maxCount = stopPairs[i][j];
-                maxGetOnStop = i;
-                maxGetOffStop = j;
-            }
+        if (getOnStopCounts[i] > maxGetOnCount) {
+            maxGetOnCount = getOnStopCounts[i];
+            maxGetOnStop = i;
         }
     }
 
-    printf("Most Common Bus Stops: Get On Stop %d, Get Off Stop %d, Passenger Count: %d\n",
-           maxGetOnStop, maxGetOffStop, maxCount);
+    for (int i = 0; i < BUS_SEATING_CAPACITY; ++i) {
+        if (getOffStopCounts[i] > maxGetOffCount) {
+            maxGetOffCount = getOffStopCounts[i];
+            maxGetOffStop = i;
+        }
+    }
+
+    printf("Most Common Get-On Stop: %d\n", maxGetOnStop);
+    printf("Most Common Get-Off Stop: %d", maxGetOffStop);
 }
 
 
