@@ -89,7 +89,7 @@ void findPeakTravelTime(struct BusRecord records[], int count) {
     }
 
     printf("Peak Travel Time: %02d:00-%02d:00, Peak Passenger Count: %d\n",
-           maxHour, (maxHour + 1) % 24, hourCounts[maxHour]+1);
+           maxHour, (maxHour + 1) % 24, hourCounts[maxHour]);
 }
 
 void calculateOccupancyRate(struct BusRecord records[], int count) {
