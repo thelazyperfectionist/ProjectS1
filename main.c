@@ -236,7 +236,7 @@ int main() {
                 findAgeRange(records, MAX_RECORDS);
                 break;
             case 5:
-                findMostCommonBusStops(records, MAX_RECORDS);
+                findMostCommonStops(records, MAX_RECORDS);
                 break;
             case 6:
                 printf("Exiting the program.\n");
